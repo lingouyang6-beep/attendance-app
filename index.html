@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💧 Water Tracker</title>
+    <style>
+        :root {
+            --primary-blue: #3498db;
+            --light-blue: #ebf5fb;
+            --dark-blue: #2980b9;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--light-blue);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 16px rgba(52, 152, 219, 0.2);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--dark-blue);
+            margin-top: 0;
+        }
+
+        .total-display {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--primary-blue);
+            margin: 20px 0;
+            padding: 15px;
+            border: 2px dashed var(--primary-blue);
+            border-radius: 10px;
+        }
+
+        .reminder {
+            font-size: 14px;
+            color: #7f8c8d;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px 10px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-cup {
+            background-color: var(--primary-blue);
+            color: white;
+        }
+
+        .btn-cup:hover {
+            background-color: var(--dark-blue);
+            transform: translateY(-2px);
+        }
+
+        .btn-half {
+            background-color: #74b9ff;
+            color: white;
+        }
+
+        .btn-half:hover {
+            background-color: #0984e3;
+            transform: translateY(-2px);
+        }
+
+        .log-container {
+            text-align: left;
+            max-height: 250px;
+            overflow-y: auto;
+            border-top: 1px solid #ecf0f1;
+            padding-top: 15px;
+        }
+
+        .log-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            border-bottom: 1px solid #f1f2f6;
+            font-size: 15px;
+        }
+
+        .log-item:last-child {
+            border-bottom: none;
+        }
+
+        .btn-reset {
+            background-color: #e74c3c;
+            color: white;
+            width: 100%;
+            margin-top: 15px;
+            flex-direction: row;
+            justify-content: center;
+        }
+
+        .btn-reset:hover {
+            background-color: #c0392b;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: var(--primary-blue);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>💧 Water Tracker</h1>
+        
+        <div class="reminder">
+            💧 Reminder: Daily recommended water intake is 1500ml - 2000ml.
+        </div>
+
+        <div class="total-display">
+            💧 Total: <span id="total-water">0</span> ml
+        </div>
+
+        <div class="buttons">
+            <button class="btn-cup" onclick="addWater(250)">
+                <span>💧 1 Cup</span>
+                <span>(250ml)</span>
+            </button>
+            <button class="btn-half" onclick="addWater(150)">
+                <span>💧 Half Cup</span>
+                <span>(150ml)</span>
+            </button>
+        </div>
+
+        <div class="log-container" id="log-list">
+            <!-- Records will be generated here -->
+        </div>
+
+        <button class="btn-reset" onclick="resetData()">Clear Daily Log</button>
+    </div>
+
+   <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getFirestore,
+    collection,
+    addDoc,
+    onSnapshot,
+    query,
+    orderBy,
+    getDocs,
+    deleteDoc
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCg2VdefLoQiOSzHDgen7RhDQj_9fipaPE",
+    authDomain: "attendance-app-2026-3fe1f.firebaseapp.com",
+    projectId: "attendance-app-2026-3fe1f",
+    storageBucket: "attendance-app-2026-3fe1f.firebasestorage.app",
+    messagingSenderId: "550913812557",
+    appId: "1:550913812557:web:e7dfeac6a92b3b16b25404",
+    measurementId: "G-238J5NLHLQ"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const waterCollection = collection(db, "waterLogs");
+
+  const totalWaterElement = document.getElementById("total-water");
+  const logListElement = document.getElementById("log-list");
+
+  async function addWater(amount) {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString("en-US", {
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    });
+
+    await addDoc(waterCollection, {
+      amount,
+      time: timeString,
+      createdAt: Date.now()
+    });
+  }
+
+  async function resetData() {
+    if (!confirm("Are you sure you want to clear today's records?")) return;
+
+    const snapshot = await getDocs(waterCollection);
+    await Promise.all(snapshot.docs.map(docItem => deleteDoc(docItem.ref)));
+  }
+
+  function renderList(docs) {
+    let total = 0;
+    logListElement.innerHTML = "";
+
+    docs.forEach((docItem) => {
+      const record = docItem.data();
+      total += Number(record.amount || 0);
+
+      const div = document.createElement("div");
+      div.className = "log-item";
+      div.innerHTML = `
+        <span>💧 ${record.time || "--:--:--"}</span>
+        <strong>+${record.amount || 0} ml</strong>
+      `;
+      logListElement.appendChild(div);
+    });
+
+    totalWaterElement.innerText = total;
+  }
+
+  const q = query(waterCollection, orderBy("createdAt", "desc"));
+
+  onSnapshot(q, (snapshot) => {
+    renderList(snapshot.docs);
+  }, (error) => {
+    console.error("读取失败：", error);
+    alert("读取 Firebase 数据失败，请按 F12 查看控制台报错。");
+  });
+
+  window.addWater = addWater;
+  window.resetData = resetData;
+</script>
+
+</body>
+</html>
